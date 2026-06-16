@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raport Conformitate Publicitate — Nr. 1</title>
+<style>
+  :root {
+    --red: #c0392b;
+    --orange: #e67e22;
+    --green: #27ae60;
+    --blue: #2980b9;
+    --dark: #1a1a2e;
+    --mid: #16213e;
+    --light: #0f3460;
+    --text: #e0e0e0;
+    --subtext: #a0aab4;
+    --border: #2a2a4a;
+    --card: #1e1e3a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--dark);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  header {
+    background: var(--mid);
+    border-bottom: 2px solid var(--light);
+    padding: 24px 32px;
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  header p {
+    color: var(--subtext);
+    font-size: 13px;
+  }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px 32px; }
+
+  /* Statistici sumar */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+
+  .stat-card .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--subtext);
+    margin-bottom: 6px;
+  }
+
+  .stat-card .value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .stat-card.red .value { color: var(--red); }
+  .stat-card.orange .value { color: var(--orange); }
+  .stat-card.green .value { color: var(--green); }
+  .stat-card.blue .value { color: var(--blue); }
+
+  /* Filtre */
+  .filters {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    align-items: center;
+  }
+
+  .filters input[type="text"] {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    width: 280px;
+    outline: none;
+  }
+
+  .filters input[type="text"]:focus {
+    border-color: var(--blue);
+  }
+
+  .filter-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--subtext);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover, .filter-btn.active {
+    background: var(--light);
+    border-color: var(--blue);
+    color: #fff;
+  }
+
+  /* Tabel */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    background: var(--mid);
+    color: var(--subtext);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 600;
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  thead th:hover { color: #fff; }
+  thead th.sorted { color: var(--blue); }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(41, 128, 185, 0.07); }
+
+  tbody td {
+    padding: 11px 16px;
+    vertical-align: top;
+    color: var(--text);
+  }
+
+  .store-name { font-weight: 600; color: #fff; }
+  .store-url a {
+    color: var(--blue);
+    text-decoration: none;
+    font-size: 12px;
+  }
+  .store-url a:hover { text-decoration: underline; }
+
+  .pattern-badge {
+    display: inline-block;
+    background: rgba(192, 57, 43, 0.18);
+    color: #e74c3c;
+    border: 1px solid rgba(192, 57, 43, 0.4);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: monospace;
+  }
+
+  .verdict-badge {
+    display: inline-block;
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .verdict-red {
+    background: rgba(192, 57, 43, 0.2);
+    color: #e74c3c;
+    border: 1px solid rgba(192, 57, 43, 0.5);
+  }
+
+  .verdict-orange {
+    background: rgba(230, 126, 34, 0.2);
+    color: #f39c12;
+    border: 1px solid rgba(230, 126, 34, 0.5);
+  }
+
+  .verdict-green {
+    background: rgba(39, 174, 96, 0.2);
+    color: #2ecc71;
+    border: 1px solid rgba(39, 174, 96, 0.5);
+  }
+
+  .context-text {
+    font-size: 12px;
+    color: var(--subtext);
+    max-width: 420px;
+    line-height: 1.5;
+  }
+
+  .context-toggle {
+    color: var(--blue);
+    cursor: pointer;
+    font-size: 11px;
+    margin-top: 4px;
+    display: inline-block;
+  }
+
+  .context-full { display: none; }
+  .context-full.visible { display: block; }
+
+  .sources-list {
+    font-size: 11px;
+    color: var(--green);
+  }
+
+  .no-source {
+    font-size: 11px;
+    color: #666;
+    font-style: italic;
+  }
+
+  .count-zero { opacity: 0.4; }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 24px;
+    color: var(--subtext);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 32px;
+  }
+
+  /* Paginator */
+  .paginator {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+
+  .page-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--subtext);
+    border-radius: 5px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .page-btn.active {
+    background: var(--light);
+    color: #fff;
+    border-color: var(--blue);
+  }
+
+  .page-btn:hover { border-color: var(--blue); }
+
+  .export-btn {
+    background: var(--light);
+    border: 1px solid var(--blue);
+    color: #fff;
+    border-radius: 6px;
+    padding: 8px 18px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-left: auto;
+  }
+
+  .export-btn:hover { background: var(--blue); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Raport Conformitate Publicitate — Afirmații „Nr. 1" în Comerțul Electronic Românesc</h1>
+  <p>Generat la: 16.06.2026 20:04 &nbsp;|&nbsp; Operatori scanați: 10 &nbsp;|&nbsp; Total afirmații detectate: 10</p>
+</header>
+
+<div class="container">
+
+  <div class="stats-grid">
+    <div class="stat-card red">
+      <div class="label">Neconforme — lipsă sursă</div>
+      <div class="value">7</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="label">Necesită verificare manuală</div>
+      <div class="value">3</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="label">Magazine cu afirmații</div>
+      <div class="value">9</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Magazine fără afirmații</div>
+      <div class="value">1</div>
+    </div>
+  </div>
+
+  <div class="filters">
+    <input type="text" id="searchInput" placeholder="Caută după magazin, URL sau afirmație...">
+    <button class="filter-btn active" onclick="filterVerdict('all', this)">Toate</button>
+    <button class="filter-btn" onclick="filterVerdict('nonconform', this)">Neconforme</button>
+    <button class="filter-btn" onclick="filterVerdict('partial', this)">Parțiale</button>
+    <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+  </div>
+
+  <div class="table-wrap">
+    <table id="mainTable">
+      <thead>
+        <tr>
+          <th onclick="sortTable(0)">#</th>
+          <th onclick="sortTable(1)">Operator Economic</th>
+          <th onclick="sortTable(2)">Pagina</th>
+          <th onclick="sortTable(3)">Afirmație Detectată</th>
+          <th onclick="sortTable(4)">Verdict</th>
+          <th>Indicatori Sursă</th>
+          <th>Context</th>
+          <th onclick="sortTable(7)">Scanat la</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+      </tbody>
+    </table>
+  </div>
+
+  <div class="paginator" id="paginator"></div>
+
+</div>
+
+<footer>
+  Raport generat automat. Verdictul „Neconformă — Lipsă Sursă" este preliminar și nu constituie constatare juridică definitivă.
+  Verificarea manuală a fiecărei afirmații este obligatorie înainte de orice acțiune oficială.
+  Legislație aplicabilă: Legea 158/2008, OUG 34/2014, Directiva 2005/29/CE.
+</footer>
+
+<script>
+const RAW_DATA = [{"store_name": "FarmaciaDemo.ro", "store_url": "https://www.farmaciademo.ro", "page_url": "https://www.farmaciademo.ro/despre-noi", "pattern_matched": "nr. 1", "context": "...Suntem farmacia nr. 1 în România cu peste 500.000 de clienți fideli. Produsele noastre sunt disponibile în toată țara...", "has_source_indicator": false, "source_indicators_found": [], "verdict": "NECONFORMĂ — LIPSĂ SURSĂ", "scanned_at": "2026-06-16 20:04:51"}, {"store_name": "ElectroMax Online", "store_url": "https://www.electromax.ro", "page_url": "https://www.electromax.ro/", "pattern_matched": "liderul pieței", "context": "...ElectroMax este liderul pieței de electronice din România, conform studiului GfK realizat în 2022 pe un eșantion de 3.000 de respondenți...", "has_source_indicator": true, "source_indicators_found": ["gfk", "studiul", "eșantion"], "verdict": "NECESITĂ VERIFICARE MANUALĂ", "scanned_at": "2026-06-16 20:04:51"}, {"store_name": "MobileShop.ro", "store_url": "https://www.mobileshop.ro", "page_url": "https://www.mobileshop.ro/despre-noi", "pattern_matched": "#1", "context": "...#1 în vânzările de telefoane mobile din România! Alăturați-vă celor 200.000 de clienți mulțumiți...", "has_source_indicator": false, "source_indicators_found": [], "verdict": "NECONFORMĂ — LIPSĂ SURSĂ", "scanned_at": "2026-06-16 20:04:51"}, {"store_name": "SuperSport Online", "store_url": "https://www.supersport.ro", "page_url": "https://www.supersport.ro/brand", "pattern_matched": "cel mai vândut", "context": "...Cel mai vândut brand sportiv din România! Oferta noastră cuprinde peste 50.000 de produse...", "has_source_indicator": false, "source_indicators_found": [], "verdict": "NECONFORMĂ — LIPSĂ SURSĂ", "scanned_at": "2026-06-16 20:04:51"}, {"store_name": "CosmeticaPlus", "store_url": "https://www.cosmeticaplus.ro", "page_url": "https://www.cosmeticaplus.ro/despre-noi", "pattern_matched": "Market leader", "context": "...Market leader în cosmetice naturale în România, potrivit sondajului Kantar realizat în 2023. Metodologia și datele complete disponibile la cerere...", "has_source_indicator": true, "source_indicators_found": ["kantar", "sondajului", "metodologia"], "verdict": "NECESITĂ VERIFICARE MANUALĂ", "scanned_at": "2026-06-16 20:04:51"}, {"store_name": "MobilerDesign.ro", "store_url": "https://www.mobilerdesign.ro", "page_url": "https://www.mobilerdesign.ro/", "pattern_matched": "numărul unu", "context": "...Suntem numărul unu în mobilier premium din România. Calitate garantată, livrare rapidă în toată țara...", "has_source_indicator": false, "source_indicators_found": [], "verdict": "NECONFORMĂ — LIPSĂ SURSĂ", "scanned_at": "2026-06-16 20:04:51"}, {"store_name": "FarmaciaDemo.ro", "store_url": "https://www.farmaciademo.ro", "page_url": "https://www.farmaciademo.ro/", "pattern_matched": "best selling", "context": "...Best selling health products in Romania. Trusted by over 500.000 customers nationwide...", "has_source_indicator": false, "source_indicators_found": [], "verdict": "NECONFORMĂ — LIPSĂ SURSĂ", "scanned_at": "2026-06-16 20:04:51"}, {"store_name": "AutoPartsPro", "store_url": "https://www.autopartspro.ro", "page_url": "https://www.autopartspro.ro/despre", "pattern_matched": "locul 1", "context": "...Ocupăm locul 1 în vânzările de piese auto online din România conform raportului anual Euromonitor 2023...", "has_source_indicator": true, "source_indicators_found": ["euromonitor", "raportului"], "verdict": "NECESITĂ VERIFICARE MANUALĂ", "scanned_at": "2026-06-16 20:04:51"}, {"store_name": "JucariiBebe.ro", "store_url": "https://www.jucariibebe.ro", "page_url": "https://www.jucariibebe.ro/", "pattern_matched": "nr. 1", "context": "...Magazinul nr. 1 de jucării pentru copii din România! Peste 10.000 de produse certificate...", "has_source_indicator": false, "source_indicators_found": [], "verdict": "NECONFORMĂ — LIPSĂ SURSĂ", "scanned_at": "2026-06-16 20:04:51"}, {"store_name": "VinuriOnline.ro", "store_url": "https://www.vinurionline.ro", "page_url": "https://www.vinurionline.ro/despre-noi", "pattern_matched": "Number one", "context": "...Number one wine retailer in Romania. Wide selection of premium wines delivered to your door...", "has_source_indicator": false, "source_indicators_found": [], "verdict": "NECONFORMĂ — LIPSĂ SURSĂ", "scanned_at": "2026-06-16 20:04:51"}];
+
+let filtered = [...RAW_DATA];
+let currentPage = 1;
+const PAGE_SIZE = 50;
+let activeVerdict = 'all';
+let searchTerm = '';
+
+function getVerdictClass(verdict) {
+  if (!verdict) return 'verdict-orange';
+  if (verdict.includes('NECONFORMĂ')) return 'verdict-red';
+  if (verdict.includes('VERIFICARE')) return 'verdict-orange';
+  return 'verdict-green';
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const slice = filtered.slice(start, start + PAGE_SIZE);
+
+  tbody.innerHTML = slice.map((row, i) => {
+    const globalIdx = start + i + 1;
+    const vClass = getVerdictClass(row.verdict);
+    const sources = row.source_indicators_found && row.source_indicators_found.length
+      ? `<span class="sources-list">${row.source_indicators_found.join(', ')}</span>`
+      : `<span class="no-source">—</span>`;
+
+    const contextShort = row.context ? row.context.substring(0, 120) + '...' : '';
+    const contextFull = row.context || '';
+    const ctxId = 'ctx_' + globalIdx;
+
+    const pageUrl = row.page_url || row.store_url;
+    const pagePath = pageUrl.replace(row.store_url, '') || '/';
+
+    return `<tr data-verdict="${row.verdict}" data-store="${row.store_name}" data-url="${row.store_url}" data-pattern="${row.pattern_matched}">
+      <td style="color:var(--subtext);width:40px">${globalIdx}</td>
+      <td>
+        <div class="store-name">${escHtml(row.store_name)}</div>
+        <div class="store-url"><a href="${row.store_url}" target="_blank" rel="noopener">${row.store_url}</a></div>
+      </td>
+      <td class="store-url"><a href="${pageUrl}" target="_blank" rel="noopener">${escHtml(pagePath)}</a></td>
+      <td><span class="pattern-badge">${escHtml(row.pattern_matched)}</span></td>
+      <td><span class="verdict-badge ${vClass}">${escHtml(row.verdict)}</span></td>
+      <td>${sources}</td>
+      <td>
+        <div class="context-text" id="${ctxId}_short">${escHtml(contextShort)}</div>
+        <div class="context-text context-full" id="${ctxId}_full">${escHtml(contextFull)}</div>
+        <span class="context-toggle" onclick="toggleCtx('${ctxId}')">▶ mai mult</span>
+      </td>
+      <td style="color:var(--subtext);white-space:nowrap;font-size:11px">${row.scanned_at || ''}</td>
+    </tr>`;
+  }).join('');
+
+  renderPaginator();
+}
+
+function renderPaginator() {
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const pag = document.getElementById('paginator');
+  if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+  let html = '';
+  for (let p = 1; p <= totalPages; p++) {
+    html += `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+  }
+  pag.innerHTML = html;
+}
+
+function goPage(p) {
+  currentPage = p;
+  renderTable();
+  window.scrollTo(0, 0);
+}
+
+function applyFilters() {
+  filtered = RAW_DATA.filter(row => {
+    const matchVerdict = activeVerdict === 'all'
+      || (activeVerdict === 'nonconform' && row.verdict && row.verdict.includes('NECONFORMĂ'))
+      || (activeVerdict === 'partial' && row.verdict && row.verdict.includes('VERIFICARE'));
+    const s = searchTerm.toLowerCase();
+    const matchSearch = !s
+      || row.store_name.toLowerCase().includes(s)
+      || row.store_url.toLowerCase().includes(s)
+      || (row.pattern_matched || '').toLowerCase().includes(s)
+      || (row.context || '').toLowerCase().includes(s);
+    return matchVerdict && matchSearch;
+  });
+  currentPage = 1;
+  renderTable();
+}
+
+function filterVerdict(v, btn) {
+  activeVerdict = v;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+document.getElementById('searchInput').addEventListener('input', function() {
+  searchTerm = this.value;
+  applyFilters();
+});
+
+function toggleCtx(id) {
+  const short = document.getElementById(id + '_short');
+  const full = document.getElementById(id + '_full');
+  const toggle = full.previousElementSibling.nextElementSibling;
+  if (full.classList.contains('visible')) {
+    full.classList.remove('visible');
+    short.style.display = '';
+    toggle.textContent = '▶ mai mult';
+  } else {
+    full.classList.add('visible');
+    short.style.display = 'none';
+    toggle.textContent = '▲ mai puțin';
+  }
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function sortTable(col) {
+  const keys = ['', 'store_name', 'page_url', 'pattern_matched', 'verdict'];
+  if (!keys[col]) return;
+  const key = keys[col];
+  filtered.sort((a, b) => (a[key] || '').localeCompare(b[key] || '', 'ro'));
+  currentPage = 1;
+  renderTable();
+}
+
+function exportCSV() {
+  const headers = ['Magazin', 'URL', 'Pagina', 'Afirmatie', 'Verdict', 'Indicatori Sursa', 'Context', 'Scanat la'];
+  const rows = filtered.map(r => [
+    r.store_name, r.store_url, r.page_url, r.pattern_matched,
+    r.verdict, (r.source_indicators_found || []).join('; '), r.context, r.scanned_at
+  ].map(v => '"' + String(v || '').replace(/"/g, '""') + '"'));
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'raport_conformitate_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+// Init
+applyFilters();
+</script>
+</body>
+</html>
