@@ -3,6 +3,7 @@ scanner.py
 Accesează site-urile de comerț electronic, detectează afirmații superlative
 de tip „nr. 1", „numărul 1", „liderul pieței" și verifică prezența surselor
 justificative (studii, institute de cercetare, date auditate).
+Extrage de asemenea persoana juridică și CUI-ul operatorului economic.
 """
 
 import requests
@@ -10,7 +11,7 @@ from bs4 import BeautifulSoup
 import re
 import time
 import json
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 from datetime import datetime
@@ -26,10 +27,9 @@ HEADERS = {
 }
 
 # ---------------------------------------------------------------------------
-# Tipare de afirmații superlative — Română și Engleză (frecventă pe site-uri RO)
+# Tipare de afirmații superlative — Română și Engleză
 # ---------------------------------------------------------------------------
 SUPERLATIVE_PATTERNS = [
-    # Română — forma directă
     r"\bnr\.?\s*1\b",
     r"\bnumărul\s+[uú]nu\b",
     r"\bnumarul\s+unu\b",
@@ -54,9 +54,8 @@ SUPERLATIVE_PATTERNS = [
     r"\bbrand\s+nr\.?\s*1\b",
     r"\bprodus\s+nr\.?\s*1\b",
     r"\bservici[iu]\s+nr\.?\s*1\b",
-    # Engleză — frecventă pe site-uri românești
     r"\bnumber\s+one\b",
-    r"\b#1\b",
+    r"(?<!\w)#1\b",
     r"\bno\.?\s*1\b",
     r"\bmarket\s+leader\b",
     r"\bbest\s+selling\b",
@@ -69,10 +68,9 @@ SUPERLATIVE_PATTERNS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Indicatori de surse justificative (studii, institute, audit)
+# Indicatori de surse justificative
 # ---------------------------------------------------------------------------
 SOURCE_INDICATORS = [
-    # Institute de cercetare de piață
     r"\bgfk\b", r"\bg\.f\.k\b",
     r"\bnielsen\b",
     r"\bkantar\b",
@@ -84,7 +82,6 @@ SOURCE_INDICATORS = [
     r"\bstatista\b",
     r"\bgartner\b",
     r"\bfrost\s*&\s*sullivan\b",
-    # Termeni generici de studiu
     r"\bstudiu\b", r"\bstudiul\b",
     r"\bsondaj\b", r"\bsondajul\b",
     r"\bcercetare\b", r"\bcercetarea\b",
@@ -102,15 +99,11 @@ SOURCE_INDICATORS = [
     r"\be[ș]antion\b",
     r"\brespondent\b",
     r"\binterviev[au]\b",
-    # Terminologie de audit financiar / vânzări
     r"\bv[âa]nz[aă]ri\s+auditate\b",
     r"\bdate\s+oficiale\b",
     r"\bdate\s+verificate\b",
     r"\bcertificat\s+de\b",
     r"\baccreditat\b",
-    # Referințe temporale specifice — doar dacă apar alături de "studiu"/"raport" (verificat manual)
-    # r"\b20[12][0-9]\b",  # Eliminat: un an singur nu constituie dovadă de sursă
-    # Engleza
     r"\bstudy\b", r"\bsurvey\b",
     r"\bresearch\b", r"\breport\b",
     r"\bmarket\s+research\b",
@@ -120,7 +113,7 @@ SOURCE_INDICATORS = [
     r"\bbased\s+on\b",
 ]
 
-# Pagini interne care conțin frecvent afirmații de marketing
+# Pagini interne cu conținut de marketing și prezentare
 TARGET_PATHS = [
     "/",
     "/despre-noi",
@@ -139,6 +132,40 @@ TARGET_PATHS = [
     "/services",
 ]
 
+# Pagini unde se găsesc datele juridice ale operatorului
+LEGAL_PAGES = [
+    "/contact",
+    "/despre-noi",
+    "/despre",
+    "/termeni",
+    "/termeni-si-conditii",
+    "/termeni-conditii",
+    "/politica-de-confidentialitate",
+    "/gdpr",
+    "/protectia-datelor",
+    "/about",
+    "/about-us",
+    "/informatii-legale",
+    "/legal",
+]
+
+# ---------------------------------------------------------------------------
+# Tipare pentru extragerea persoanei juridice și CUI
+# ---------------------------------------------------------------------------
+CUI_PATTERN = re.compile(
+    r"(?:C\.?U\.?I\.?|cod\s+fiscal|cod\s+unic|nr\.?\s*reg\.?\s*com\.?)"
+    r"\s*[:\-]?\s*(RO\s*)?\d{6,10}",
+    re.IGNORECASE,
+)
+CUI_DIGITS = re.compile(r"(RO\s*)?(\d{6,10})", re.IGNORECASE)
+
+LEGAL_ENTITY_PATTERN = re.compile(
+    r"\b([A-Z\u0102\u00C2\u00CE\u015E\u0162][A-Za-z\u0102\u00E2\u00EE"
+    r"\u015F\u0163\u0103\u00E3\s&\.\-]{2,60}"
+    r"\s+(?:S\.?R\.?L\.?|S\.?A\.?|S\.?N\.?C\.?|R\.?A\.?))\b",
+    re.UNICODE,
+)
+
 
 @dataclass
 class Finding:
@@ -147,11 +174,13 @@ class Finding:
     store_url: str
     page_url: str
     pattern_matched: str
-    context: str                      # 300 caractere în jurul afirmației
+    context: str
     has_source_indicator: bool
     source_indicators_found: list[str] = field(default_factory=list)
-    verdict: str = ""                 # CONFORMĂ / NECONFORMĂ / NECESITĂ VERIFICARE
+    verdict: str = ""
     scanned_at: str = ""
+    persoana_juridica: Optional[str] = None
+    cui: Optional[str] = None
 
 
 def compile_patterns(pattern_list: list[str]) -> list[re.Pattern]:
@@ -167,17 +196,14 @@ def extract_text_from_soup(soup: BeautifulSoup) -> str:
     for tag in soup(["script", "style", "noscript", "meta", "head"]):
         tag.decompose()
     text = soup.get_text(separator=" ", strip=True)
-    # Normalizează spații multiple
-    text = re.sub(r"\s+", " ", text)
-    return text
+    return re.sub(r"\s+", " ", text)
 
 
 def get_context(text: str, match: re.Match, window: int = 300) -> str:
-    """Extrage contextul din jurul unui match (window caractere de o parte și alta)."""
+    """Extrage contextul din jurul unui match."""
     start = max(0, match.start() - window)
     end = min(len(text), match.end() + window)
-    snippet = text[start:end].strip()
-    return snippet
+    return text[start:end].strip()
 
 
 def check_source_indicators(context: str) -> tuple[bool, list[str]]:
@@ -191,47 +217,94 @@ def check_source_indicators(context: str) -> tuple[bool, list[str]]:
 
 
 def assign_verdict(has_source: bool, source_list: list[str]) -> str:
-    """
-    Atribuie un verdict preliminar.
-    CONFORMĂ: există indicatori clari de sursă (institut + an sau metodologie).
-    NECESITĂ VERIFICARE: există indicatori parțiali.
-    NECONFORMĂ: nu există niciun indicator de sursă.
-    """
+    """Atribuie un verdict preliminar pe baza indicatorilor de sursă găsiți."""
     strong = [s for s in source_list if any(
-        kw in s for kw in ["gfk", "nielsen", "kantar", "imas", "ipsos",
-                           "studiu", "sondaj", "cercetare", "raport",
-                           "audit", "survey", "research", "report"]
+        kw in s for kw in [
+            "gfk", "nielsen", "kantar", "imas", "ipsos",
+            "studiu", "sondaj", "cercetare", "raport",
+            "audit", "survey", "research", "report",
+        ]
     )]
-    if strong:
-        return "NECESITĂ VERIFICARE MANUALĂ"
-    if has_source:
+    if strong or has_source:
         return "NECESITĂ VERIFICARE MANUALĂ"
     return "NECONFORMĂ — LIPSĂ SURSĂ"
+
+
+def extract_legal_entity(
+    store: dict, session: requests.Session
+) -> tuple[Optional[str], Optional[str]]:
+    """
+    Caută pe paginile juridice ale site-ului denumirea persoanei juridice
+    și CUI-ul. Returnează (denumire, cui) sau (None, None).
+    """
+    for path in LEGAL_PAGES:
+        url = store["url"].rstrip("/") + path
+        try:
+            resp = session.get(url, timeout=10, allow_redirects=True)
+            if resp.status_code != 200:
+                continue
+            resp.encoding = resp.apparent_encoding or "utf-8"
+            soup = BeautifulSoup(resp.text, "lxml")
+            for tag in soup(["script", "style", "noscript"]):
+                tag.decompose()
+            text = re.sub(r"\s+", " ", soup.get_text(separator=" ", strip=True))
+
+            cui_match = CUI_PATTERN.search(text)
+            cui = None
+            if cui_match:
+                digits = CUI_DIGITS.search(cui_match.group(0))
+                if digits:
+                    cui = "RO" + digits.group(2).replace(" ", "")
+
+            pj = None
+            search_zone = text
+            if cui_match:
+                start = max(0, cui_match.start() - 200)
+                end = min(len(text), cui_match.end() + 200)
+                search_zone = text[start:end]
+
+            entity_match = LEGAL_ENTITY_PATTERN.search(search_zone)
+            if entity_match:
+                pj = re.sub(r"\s+", " ", entity_match.group(0).strip())
+
+            if pj or cui:
+                return pj, cui
+
+        except Exception:
+            continue
+
+    return None, None
+
+
+def fetch_page(url: str, session: requests.Session) -> Optional[BeautifulSoup]:
+    """Descarcă o pagină și returnează BeautifulSoup sau None la eroare."""
+    try:
+        resp = session.get(url, timeout=12, allow_redirects=True)
+        if resp.status_code != 200:
+            return None
+        resp.encoding = resp.apparent_encoding or "utf-8"
+        return BeautifulSoup(resp.text, "lxml")
+    except Exception as e:
+        print(f"    [EROARE] {url}: {e}")
+        return None
 
 
 def scan_page(store: dict, path: str, session: requests.Session) -> list[Finding]:
     """Scanează o pagină individuală și returnează lista de constatări."""
     url = store["url"].rstrip("/") + path
-    findings = []
-
-    try:
-        resp = session.get(url, timeout=12, allow_redirects=True)
-        if resp.status_code != 200:
-            return []
-        resp.encoding = resp.apparent_encoding or "utf-8"
-        soup = BeautifulSoup(resp.text, "lxml")
-        text = extract_text_from_soup(soup)
-    except Exception as e:
-        print(f"    [EROARE] {url}: {e}")
+    soup = fetch_page(url, session)
+    if not soup:
         return []
+
+    text = extract_text_from_soup(soup)
+    findings = []
 
     for pat in COMPILED_SUPERLATIVES:
         for match in pat.finditer(text):
             context = get_context(text, match, window=300)
             has_src, src_list = check_source_indicators(context)
             verdict = assign_verdict(has_src, src_list)
-
-            finding = Finding(
+            findings.append(Finding(
                 store_name=store["name"],
                 store_url=store["url"],
                 page_url=url,
@@ -241,19 +314,29 @@ def scan_page(store: dict, path: str, session: requests.Session) -> list[Finding
                 source_indicators_found=src_list,
                 verdict=verdict,
                 scanned_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            )
-            findings.append(finding)
+                persoana_juridica=store.get("persoana_juridica"),
+                cui=store.get("cui"),
+            ))
 
     return findings
 
 
-def scan_store(store: dict, session: requests.Session, delay: float = 1.5) -> list[Finding]:
+def scan_store(
+    store: dict, session: requests.Session, delay: float = 1.5
+) -> list[Finding]:
     """Scanează un operator economic pe mai multe pagini interne."""
-    all_findings = []
     print(f"  Scanare: {store['name']} ({store['url']})")
 
+    # Extrage persoana juridică și CUI o singură dată per operator
+    pj, cui = extract_legal_entity(store, session)
+    if pj or cui:
+        print(f"    → Persoana juridică: {pj or '?'} | CUI: {cui or '?'}")
+
+    store_enriched = dict(store, persoana_juridica=pj, cui=cui)
+    all_findings = []
+
     for path in TARGET_PATHS:
-        page_findings = scan_page(store, path, session)
+        page_findings = scan_page(store_enriched, path, session)
         if page_findings:
             print(f"    → {path}: {len(page_findings)} afirmații detectate")
         all_findings.extend(page_findings)
@@ -261,21 +344,18 @@ def scan_store(store: dict, session: requests.Session, delay: float = 1.5) -> li
 
     # Deduplicare: același pattern pe aceeași pagină → o singură constatare
     seen = set()
-    unique_findings = []
+    unique = []
     for f in all_findings:
         key = (f.page_url, f.pattern_matched.lower())
         if key not in seen:
             seen.add(key)
-            unique_findings.append(f)
+            unique.append(f)
 
-    return unique_findings
+    return unique
 
 
 def scan_all(stores: list[dict], delay: float = 1.5) -> list[dict]:
-    """
-    Punct de intrare principal.
-    Scanează toți operatorii și returnează lista serializabilă de constatări.
-    """
+    """Scanează toți operatorii și returnează lista serializabilă de constatări."""
     session = requests.Session()
     session.headers.update(HEADERS)
 
@@ -292,10 +372,9 @@ def scan_all(stores: list[dict], delay: float = 1.5) -> list[dict]:
 
 
 if __name__ == "__main__":
-    # Test rapid pe un singur magazin
-    test_store = {"name": "eMAG", "url": "https://www.emag.ro", "source": "manual"}
+    test_store = {"name": "Test", "url": "https://www.example.com", "source": "manual"}
     session = requests.Session()
     session.headers.update(HEADERS)
-    results = scan_store(test_store, session, delay=1.0)
+    results = scan_store(test_store, session, delay=0.5)
     for r in results:
         print(json.dumps(asdict(r), ensure_ascii=False, indent=2))
