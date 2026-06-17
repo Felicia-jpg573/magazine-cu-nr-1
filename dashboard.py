@@ -241,8 +241,8 @@ function exportCSV() {
     r.verdict, (r.source_indicators_found || []).join('; '),
     r.context, r.scanned_at
   ].map(v => '"' + String(v || '').replace(/"/g, '""') + '"'));
-  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\\n');
-  const blob = new Blob(['\\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'raport_conformitate_' + new Date().toISOString().slice(0,10) + '.csv';

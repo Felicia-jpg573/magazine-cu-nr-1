@@ -63,7 +63,7 @@
 <body>
 <header>
   <h1>Raport conformitate publicitate — afirmații „nr. 1" în comerțul electronic românesc</h1>
-  <p>Generat la: 17.06.2026 07:20 &nbsp;|&nbsp; Operatori scanați: 10 &nbsp;|&nbsp; Afirmații detectate: 10</p>
+  <p>Generat la: 17.06.2026 09:07 &nbsp;|&nbsp; Operatori scanați: 10 &nbsp;|&nbsp; Afirmații detectate: 10</p>
 </header>
 <div class="container">
   <div class="stats-grid">
@@ -229,8 +229,9 @@ function exportCSV() {
     r.verdict, (r.source_indicators_found || []).join('; '),
     r.context, r.scanned_at
   ].map(v => '"' + String(v || '').replace(/"/g, '""') + '"'));
-  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('
+');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'raport_conformitate_' + new Date().toISOString().slice(0,10) + '.csv';
